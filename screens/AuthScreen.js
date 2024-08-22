@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, Image, TextInput, CheckBox } from 'react-native';
+import { StyleSheet, Text, View, Image, TextInput} from 'react-native';
 import { Button } from 'galio-framework';
 
 export default function AuthScreen({ navigation }) {

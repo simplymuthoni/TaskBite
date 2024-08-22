@@ -6,6 +6,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_session import Session
 import os
 from flask_mail import Mail, Message
+from itsdangerous import URLSafeTimedSerializer
+from flask_mail import Mail, Message
 
 app = Flask(__name__)
 swagger = Swagger(app)
@@ -14,6 +16,18 @@ swagger = Swagger(app)
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
 Session(app)
+
+# Initialize Flask-Mail
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER')
+
+mail = Mail(app)
+serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+
 
 auth = Blueprint('auth', __name__, url_prefix='/api/auth')
 
@@ -171,6 +185,100 @@ def logout():
     session.pop('user_id', None)
     session.pop('user_email', None)
     return jsonify({"message": "Logout successful"}), 200
+
+@auth.route('/forgot-password', methods=['POST'])
+def forgot_password():
+    """
+    Forgot Password
+    ---
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          id: ForgotPassword
+          required:
+            - email
+          properties:
+            email:
+              type: string
+    responses:
+      200:
+        description: Password reset email sent successfully
+      400:
+        description: Invalid input or email not found
+    """
+    data = request.get_json()
+    email = data.get('email')
+
+    if not email:
+        return jsonify({"error": "Invalid input"}), 400
+
+    user = User.query.filter_by(email=email).first()
+
+    if not user:
+        return jsonify({"error": "Email not found"}), 400
+
+    # Generate a password reset token
+    token = serializer.dumps(email, salt='password-reset-salt')
+
+    # Create a reset password URL
+    reset_url = f"{request.url_root}reset-password/{token}"
+
+    # Send the password reset email
+    msg = Message("Password Reset Request", recipients=[email])
+    msg.body = f"To reset your password, visit the following link: {reset_url}\n\nIf you did not request a password reset, please ignore this email."
+    mail.send(msg)
+
+    return jsonify({"message": "Password reset email sent successfully"}), 200
+
+@auth.route('/reset-password/<token>', methods=['POST'])
+def reset_password(token):
+    """
+    Reset Password
+    ---
+    parameters:
+      - name: token
+        in: path
+        type: string
+        required: true
+        description: The password reset token
+      - name: body
+        in: body
+        required: true
+        schema:
+          id: ResetPassword
+          required:
+            - password
+          properties:
+            password:
+              type: string
+    responses:
+      200:
+        description: Password reset successfully
+      400:
+        description: Invalid token or input
+    """
+    try:
+        email = serializer.loads(token, salt='password-reset-salt', max_age=3600)
+    except:
+        return jsonify({"error": "Invalid or expired token"}), 400
+
+    data = request.get_json()
+    new_password = data.get('password')
+
+    if not new_password:
+        return jsonify({"error": "Invalid input"}), 400
+
+    user = User.query.filter_by(email=email).first()
+
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    user.set_password(new_password)
+    db.session.commit()
+
+    return jsonify({"message": "Password reset successfully"}), 200
 
 @auth.route('/update/<int:user_id>', methods=['PUT'])
 def update_user(user_id):

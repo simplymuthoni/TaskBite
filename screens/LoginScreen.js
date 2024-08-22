@@ -6,25 +6,74 @@ export default function LoginScreen({ navigation }) {
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
 
-  const handleLogin = () => {
-    // TODO: Implement login logic here
-    // For now, just show an alert
-    if (email && password) {
-      Alert.alert('Login Successful', `Email: ${email}`);
-    } else {
-      Alert.alert('Error', 'Please enter both email and password');
+  /**
+   * Handles the login button press
+   *
+   * @param {string} email - The email input value
+   * @param {string} password - The password input value
+   *
+   * @example
+   * handleLogin('johndoe@example.com', 'password123')
+   */
+  const handleLogin = async () => {
+    try {
+      const response = await fetch('http://127.0.0.1:8000/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        Alert.alert('Login Successful', `Email: ${email}`);
+        // Store the token or user data in AsyncStorage or Redux
+        // navigation.navigate('Home');
+      } else {
+        Alert.alert('Error', data.error);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to login');
     }
   };
 
-  const handleForgotPassword = () => {
-    // Implement forgot password logic here
-    Alert.alert('Forgot Password', 'Forgot password functionality not implemented yet');
+  /**
+   * Handles the forgot password button press
+   *
+   * @example
+   * handleForgotPassword()
+   */
+  const handleForgotPassword = async () => {
+    try {
+      const response = await fetch('http://127.0.0.1:8000/api/auth/forgot-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        Alert.alert('Forgot Password', 'Password reset email sent');
+      } else {
+        Alert.alert('Error', data.error);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to send password reset email');
+    }
   };
 
   return (
     <View style={styles.container}>
       <Text style={styles.headerText}>Login</Text>
-      
+
       <View style={styles.inputContainer}>
         <Text style={styles.label}>Email:</Text>
         <TextInput
@@ -47,24 +96,27 @@ export default function LoginScreen({ navigation }) {
         />
       </View>
 
+      <View style={styles.rememberMeContainer}>
+        <CheckBox
+          value={rememberMe}
+          onValueChange={(value) => setRememberMe(value)}
+        />
+        <Text style={styles.label}>Remember me</Text>
+      </View>
+
       <Button
         title="Login"
         onPress={handleLogin}
         color="#007BFF"
       />
-      <View style={styles.rememberMeContainer}>
-          <CheckBox
-            value={rememberMe}
-            onValueChange={(value) => setRememberMe(value)}
-          />
-          <Text>Remember me</Text>
-        </View>
+      <b></b>
 
-        <Button
-          title="Forgot Password"
-          onPress={handleForgotPassword}
-          color="danger"
-        />
+      <Button
+        title="Forgot Password"
+        onPress={handleForgotPassword}
+        color="#DC3545"
+        style={styles.forgotPasswordButton}
+      />
 
       <View style={styles.footer}>
         <Text>Don't have an account?</Text>
@@ -86,16 +138,14 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: '#f8f9fa',
   },
-  formContainer:{
-    padding:20,
-  },
   headerText: {
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 20,
   },
   inputContainer: {
-    width: '100%',
+    width: 300,
+    height:200,
     marginBottom: 15,
   },
   label: {
@@ -103,20 +153,36 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   input: {
-    height: 40,
+    height: 30,
     borderColor: '#ced4da',
     borderWidth: 1,
-    paddingHorizontal: 10,
-    borderRadius: 5,
+    padding: 10,
     backgroundColor: '#fff',
   },
-  footer: {
-    marginTop: 20,
-    alignItems: 'center',
+  inputContainer: {
+    marginBottom: 20,
+  },
+  formContainer: {
+    padding: 20,
   },
   rememberMeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 10,
+    marginBottom: 20,
+  },
+  forgotPasswordButton: {
+    marginTop: 10,
+    marginBottom: 20,
+    padding:20,
+  },
+  loginButton:{
+    padding: 20,
+    marginTop: 10,
+    marginBottom:20,
+  },
+  footer: {
+    marginTop: 20,
+    alignItems: 'center',
   },
 });
