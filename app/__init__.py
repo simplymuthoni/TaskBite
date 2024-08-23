@@ -11,9 +11,20 @@ from flask_jwt_extended import JWTManager
 import os
 from .extensions import db
 from flask_swagger_ui import get_swaggerui_blueprint
-import config
+from app import config
 
 load_dotenv()
+
+ # Initialize extensions
+bcrypt = Bcrypt()
+jwt = JWTManager()
+mail = Mail()
+sess = Session()
+migrate = Migrate()
+swagger = Swagger()
+db = SQLAlchemy() 
+
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def create_app(config_name):
 
@@ -58,13 +69,8 @@ def create_app(config_name):
     app.config['SESSION_TYPE'] = 'filesystem'
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 
-    # Initialize extensions
-    bcrypt = Bcrypt()
-    jwt = JWTManager()
-    mail = Mail()
-    sess = Session()
-    migrate = Migrate()
-    swagger = Swagger()
+    if __name__ == "__main__":
+        config_name = 'development'
 
     # Initialize extensions
     db.init_app(app)

@@ -1,8 +1,10 @@
 from flask import Flask, request, jsonify, Blueprint, session
 from flasgger import Swagger
 from app.models import User
+from app.calendar import Note,ToDo
 from app import db
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from flask_session import Session
 import os
 from flask_mail import Mail, Message
@@ -154,10 +156,42 @@ def login():
 
     # if user is None or not check_password_hash(user.password, password):
     #     return jsonify({"error": "Invalid email or password"}), 400
+    if user and user.check_password(password):
+        access_token = create_access_token(identity=user.id)
+        session['user_id'] = user.id
+        return jsonify({"message": "Login successful", "access_token": access_token}), 200
+    else:
+        return jsonify({"message": "Invalid username or password"}), 401
+    
+@auth.route('/dashboard', methods=['GET'])
+@jwt_required()
+def dashboard():
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
 
-    session['user_id'] = user.id
+    # Fetch user's notes and to-do list items
+    notes = Note.query.filter_by(user_id=user.id).all()
+    todos = ToDo.query.filter_by(user_id=user.id).all()
 
-    return jsonify({"message": "Login successful", "user": user.to_dict()}), 200
+    # Prepare data for the calendar
+    calendar_data = {}
+    for note in notes:
+        note_date = note.created_at.strftime('%Y-%m-%d')
+        if note_date not in calendar_data:
+            calendar_data[note_date] = {"notes": [], "todos": []}
+        calendar_data[note_date]["notes"].append(note.content)
+
+    for todo in todos:
+        todo_date = todo.due_date.strftime('%Y-%m-%d')
+        if todo_date not in calendar_data:
+            calendar_data[todo_date] = {"notes": [], "todos": []}
+        calendar_data[todo_date]["todos"].append(todo.task)
+
+    return jsonify({
+        "message": "Welcome to your dashboard",
+        "calendar_data": calendar_data
+    }), 200
+    
 
 @auth.route('/logout', methods=['POST'])
 def logout():
