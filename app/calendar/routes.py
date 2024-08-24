@@ -1,7 +1,9 @@
 from flask import Blueprint, request, jsonify
 from app.extensions import db
-from .models import Note, ToDo
+from app.models import Note, ToDo
+from models import User
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from datetime import datetime
 
 calendar = Blueprint('calendar', __name__)
 
