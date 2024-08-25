@@ -2,7 +2,11 @@
 This module provides the authentication and user management functionality for the application.
 
 It includes routes for user registration, login, email verification, and account updates.
-The module also handles session management, JWT authentication, rate limiting, and token blacklisting.
+The module also handles: 
+-session management
+-JWT authentication 
+-rate limiting
+-token blacklisting.
 
 Main Features:
 - User Registration with email verification
@@ -37,17 +41,18 @@ Example:
 import os
 import re
 from datetime import timedelta
-from smtplib import SMTPException
 from flask import Flask, request, jsonify, Blueprint, session, url_for
 from flasgger import Swagger
 from werkzeug.security import check_password_hash
-from flask_jwt_extended import create_access_token, get_jwt, jwt_required, get_jwt_identity, JWTManager
+from itsdangerous import URLSafeTimedSerializer
+from flask_jwt_extended import create_access_token, get_jwt
+from flask_jwt_extended import jwt_required, get_jwt_identity, JWTManager
 from flask_mail import Mail, Message
 from flask_bcrypt import Bcrypt
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from app.models import User, Note, ToDo
-from app import db
+from app.extensions import db
 from flask_session import Session
 
 
@@ -68,6 +73,8 @@ jwt = JWTManager(app)
 mail = Mail(app)
 
 auth = Blueprint('auth', __name__, url_prefix='/api/auth')
+serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+
 
 def is_valid_username(username):
     """
@@ -81,17 +88,18 @@ def is_valid_username(username):
     """
     return re.match(r'^[a-zA-Z0-9_.-]+$', username) is not None
 
-def is_valid_email(email):
+def validate_email(email):
     """
-    Validate the email address format.
+    Validates an email address using a regular expression.
 
     Args:
         email (str): The email address to validate.
 
     Returns:
-        bool: True if the email format is valid, False otherwise.
+        bool: True if the email address is valid, False otherwise.
     """
-    return re.match(r'^[\w\.-]+@[\w\.-]+\.\w+$', email) is not None
+    email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(email_regex, email) is not None
 
 @auth.route('/register', methods=['POST'])
 @limiter.limit("10/minute")
@@ -124,6 +132,8 @@ def add_user():
         description: User registered successfully
       400:
         description: Invalid input or missing required fields
+      500:
+        description: Server error, could not send verification email
     """
     data = request.get_json()
 
@@ -135,17 +145,20 @@ def add_user():
     password = data.get('password')
     email = data.get('email')
 
-
     if not all([username, name, password, email]):
         return jsonify({"error": "Missing required fields"}), 400
 
-    if User.query.filter_by(username=username).first() is not None:
-        return jsonify({"error": "Username already taken"}), 400
-    if User.query.filter_by(email=email).first() is not None:
-        return jsonify({"error": "Email already registered"}), 400
+    # Validate email address
+    if not validate_email(email):
+        return jsonify({"error": "Invalid email address"}), 400
 
+    # Check if username or email already exists
+    if User.query.filter_by(username=username).first() or User.query.filter_by(email=email).first():
+        return jsonify({"error": "Username or email already taken"}), 400
+
+    # Hash password using Argon2
     hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
-    
+
     user = User(
         username=username,
         name=name,
@@ -156,64 +169,63 @@ def add_user():
     db.session.add(user)
     db.session.commit()
 
-     # Create a token for email verification with an expiration of 15 minutes
-    verification_token = create_access_token(identity=user.id, expires_delta=timedelta(minutes=15))
-    verification_url = url_for('auth.verify_email', token=verification_token, _external=True)
+     # Generate a token for email verification
+    token = serializer.dumps(user.email, salt='email-confirm')
+    # Create the verification link
+    confirm_url = url_for('confirm_email', token=token, _external=True)
+    # Send the email
+    send_email(user.email, 'Confirm Your Email', confirm_url=confirm_url)
+    return jsonify({'message': 'User created. Please check your email to verify your account.'}), 201
 
-    msg = Message("Registration Successful", sender=os.getenv('MAIL_SENDER'), recipients=[email])
-    msg_body = (
-        f"Dear {name},\n\n"
-        f"Thank you for registering with us. Please click on the following link to verify your email address: {verification_url}\n\n"
-        "Best regards,\n[TaskBite]"
-    )    
-    msg.body = msg_body
-    try:
-        mail.send(msg)
-    except SMTPException as e:
-      app.logger.error(f"SMTPException occurred: {e}")
-      return jsonify({"error": "Could not send verification email"}), 500
-    except RuntimeError as e:
-      app.logger.error(f"RuntimeError occurred: {e}")
-      return jsonify({"error": "Runtime error occurred"}), 500
-    except Exception as e:
-      app.logger.error(f"Unexpected error occurred: {e}")
-      return jsonify({"error": "An unexpected error occurred"}), 500
-    
-    return jsonify({"message": "User registered successfully"}), 201
-
-
-# Add a new route to handle email verification
-@auth.route('/verify/<token>', methods=['GET'])
-@jwt_required()
-def verify_email(user_id):
+def send_email(to, subject, **kwargs):
     """
-    Verify email address
-    ---
-    parameters:
-      - name: user_id
-        in: path
-        type: integer
-        required: true
-        description: The user ID
-    responses:
-      200:
-        description: Email verified successfully
-      404:
-        description: User not found
+    Sends an email to the specified recipient with the provided subject and content.
+
+    Args:
+        to (str): The recipient's email address.
+        subject (str): The subject of the email.
+        template (str): The template to use for the email body (not used in this example).
+        **kwargs: Additional keyword arguments, such as 'confirm_url' for the email content.
+
+    Example:
+        >>> send_email('user@example.com', 
+        'Confirm Your Email',confirm_url='http://example.com/confirm/abc123')
+
+    Returns:
+        None
+    """
+    msg = Message(subject, recipients=[to])
+    msg.body = f'Click the link to verify your email: {kwargs["confirm_url"]}'
+    mail.send(msg)
+
+
+@auth.route('/confirm/<token>', methods=['GET'])
+def confirm_email(token):
+    """
+    Confirms the user's email address using a token sent via email.
+
+    Args:
+        token (str): The token used to verify the user's email.
+
+    Example:
+        >>> confirm_email('abc123')
+
+    Returns:
+        Response: A JSON response with a message indicating the result of the confirmation process.
+
+        - 200: If the account is successfully verified or has already been verified.
+        - 400: If the token is invalid or has expired.
     """
     try:
-        user_id = get_jwt_identity()
-        user = User.query.get(user_id)
-    except Exception as e:
-        return jsonify({"error": "Invalid or expired token"}), 400
-
-    if not user:
-        return jsonify({"error": "User not found"}), 404
-
+        email = serializer.loads(token, salt='email-confirm', max_age=3600)
+    except:
+        return jsonify({'message': 'The confirmation link is invalid or has expired.'}), 400
+    user = User.query.filter_by(email=email).first_or_404()
+    if user.email_verified:
+        return jsonify({'message': 'Account already verified. Please log in.'}), 200
     user.email_verified = True
     db.session.commit()
-
-    return jsonify({"message": "Email verified successfully"}), 200
+    return jsonify({'message': 'You have confirmed your account. Thanks!'}), 200
 
 
 @auth.route('/login', methods=['POST'])
@@ -259,14 +271,14 @@ def login():
 
     if user is None or not check_password_hash(user.password, password):
         return jsonify({"message": "Invalid email or password"}), 401
-    
     if not user.email_verified:
         return jsonify({"message": "Email not verified. Please check your inbox."}), 401
 
     access_token = create_access_token(identity=user.id)
     session['user_id'] = user.id
 
-    return jsonify({"message": "Login successful", "access_token": access_token}), 200  
+    return jsonify({"message": "Login successful", "access_token": access_token}), 200
+
 @auth.route('/dashboard', methods=['GET'])
 @jwt_required()
 def dashboard():
@@ -468,8 +480,96 @@ def update_user(user_id):
     db.session.commit()
     return jsonify({"message": "User updated successfully"}), 200
 
-# Register Blueprint
-app.register_blueprint(auth)
+@auth.route('/delete', methods=['POST'])
+@jwt_required
+def delete_user():
+    """
+    Delete a user
+    ---
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          id: User
+          required:
+            - id
+          properties:
+            id:
+              type: integer
+    responses:
+      200:
+        description: User deleted successfully
+      401:
+        description: Unauthorized
+      404:
+        description: User not found
+    """
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"error": "Invalid input"}), 400
+
+    user_id = data.get('id')
+
+    if not user_id:
+        return jsonify({"error": "Missing required fields"}), 400
+
+    user = User.query.get(user_id)
+
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    if user.id != get_jwt_identity():
+        return jsonify({"error": "Unauthorized"}), 401
+
+    db.session.delete(user)
+    db.session.commit()
+
+    return jsonify({"message": "User deleted successfully"}), 200
+
+@auth.route('/users', methods=['GET'])
+@jwt_required
+def get_users():
+    """
+    Get all users
+    ---
+    parameters:
+      - name: page
+        in: query
+        type: integer
+        required: false
+        default: 1
+      - name: per_page
+        in: query
+        type: integer
+        required: false
+        default: 10
+    responses:
+      200:
+        description: List of users
+        schema:
+          type: array
+          items:
+            $ref: '#/definitions/User'
+      401:
+        description: Unauthorized
+    """
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+
+    users = User.query.paginate(page, per_page, error_out=False)
+    output = []
+
+    for user in users.items:
+        user_data = {}
+        user_data['id'] = user.id
+        user_data['username'] = user.username
+        user_data['email'] = user.email
+        output.append(user_data)
+
+    return jsonify({'users': output, 'has_next': users.has_next, 'has_prev': users.has_prev, 'page': page, 'per_page': per_page}), 200
+
 
 if __name__ == '__main__':
     app.run(debug=True)

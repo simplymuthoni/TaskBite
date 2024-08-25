@@ -52,7 +52,7 @@ mail = Mail()
 sess = Session()
 migrate = Migrate()
 swagger = Swagger()
-db = SQLAlchemy()
+migrate = Migrate()
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -115,6 +115,7 @@ def create_app(config_name):
         # Import routes
         from app.routes import auth
         app.register_blueprint(auth, url_prefix='/api/auth')
+        db.create_all()
 
     # Swagger setup
     swagger_url = '/api/docs'

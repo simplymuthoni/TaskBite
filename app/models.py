@@ -27,8 +27,12 @@ from datetime import datetime
 import uuid
 from sqlalchemy import Enum, DateTime, Column, String, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import create_engine
 from werkzeug.security import generate_password_hash, check_password_hash
 from .extensions import db
+
+Base = declarative_base()
 
 class User(db.Model):
     """
@@ -163,3 +167,7 @@ class ToDo(db.Model):
             str: A string in the format '<ToDo task>'.
         """
         return f'<ToDo {self.task}>'
+
+engine = create_engine('mariadb+mariadbconnector://mugo:Demo123@localhost/taskbite')
+
+Base.metadata.create_all(engine)
