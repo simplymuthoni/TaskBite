@@ -1,26 +1,51 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View, Image, TextInput} from 'react-native';
 import { Button } from 'galio-framework';
+import axios from 'axios';
 
 export default function AuthScreen({ navigation }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [repeatPassword, setRepeatPassword] = useState('');
+  const [error, setError] = useState(null);
 
-  const handleCreateAccount = () => {
-    // TO DO: Implement create account logic here
-    console.log('Create account button pressed');
+  const handleCreateAccount = async () => {
+    try {
+      const response = await axios.post('https://127.0.0.1:8000/api/auth/register', {
+        name,
+        email,
+        password,
+      });
+      console.log(response.data);
+      navigation.navigate('Login');
+    } catch (error) {
+      setError(error.response.data.message);
+    }
   };
 
-  const handleLogin = () => {
-    // TO DO: Implement login logic here
-    console.log('Login button pressed');
+  const handleLogin = async () => {
+    try {
+      const response = await axios.post('http://127.0.0.1:8000/api/auth/login', {
+        email,
+        password,
+      });
+      console.log(response.data);
+      navigation.navigate('Home');
+    } catch (error) {
+      setError(error.response.data.message);
+    }
   };
 
-  const handleForgotPassword = () => {
-    // TO DO: Implement forgot password logic here
-    console.log('Forgot password button pressed');
+  const handleForgotPassword = async () => {
+    try {
+      const response = await axios.post('http://127.0.0.1:8000/api/auth/forgot-password', {
+        email,
+      });
+      console.log(response.data);
+    } catch (error) {
+      setError(error.response.data.message);
+    }
   };
   
   return (
@@ -89,11 +114,29 @@ export default function AuthScreen({ navigation }) {
             round
             uppercase
             color="info"
-            onPress={() => navigation.navigate('Login')}
+            onPress={handleLogin}
             >
             Login
           </Button>
         </View>
+
+        <View style={styles.forgotPasswordContainer}>
+          <Text>Forgot Password?</Text>
+          <Button
+            round
+            uppercase
+            color="warning"
+            onPress={handleForgotPassword}
+            >
+            Forgot Password
+          </Button>
+        </View>
+
+        {error && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -126,5 +169,18 @@ const styles = StyleSheet.create({
   },
   loginContainer: {
     marginTop: 20,
+  },
+  forgotPasswordContainer: {
+    marginTop: 20,
+  },
+  errorContainer: {
+    marginTop: 20,
+    backgroundColor: '#f44336',
+    padding: 10,
+    borderRadius: 5,
+  },
+  errorText: {
+    color: '#fff',
+    fontSize: 16,
   },
 });

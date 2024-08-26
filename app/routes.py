@@ -54,6 +54,7 @@ from flask_limiter.util import get_remote_address
 from app.models import User, Note, ToDo
 from app.extensions import db
 from flask_session import Session
+from app.schemas import UserSchema
 
 
 app = Flask(__name__)
@@ -64,6 +65,8 @@ app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
 app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY')
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(minutes=30)
+serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+
 Session(app)
 
 # Initialize Flask-Bcrypt
@@ -72,9 +75,10 @@ limiter = Limiter(app=app, key_func=get_remote_address)
 jwt = JWTManager(app)
 mail = Mail(app)
 
-auth = Blueprint('auth', __name__, url_prefix='/api/auth')
-serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+user_schema = UserSchema()
+users_schema = UserSchema(many=True)
 
+auth = Blueprint('auth', __name__)
 
 def is_valid_username(username):
     """
@@ -103,7 +107,7 @@ def validate_email(email):
 
 @auth.route('/register', methods=['POST'])
 @limiter.limit("10/minute")
-def add_user():
+def register_user():
     """
     Register a new user
     ---
@@ -140,36 +144,35 @@ def add_user():
     if not data:
         return jsonify({"error": "Invalid input"}), 400
 
-    username = data.get('username')
-    name = data.get('name')
-    password = data.get('password')
-    email = data.get('email')
+    user_data = {
+        'username': data.get('username'),
+        'name': data.get('name'),
+        'email': data.get('email'),
+        'password': data.get('password')
+    }
 
-    if not all([username, name, password, email]):
+    required_fields = ['username', 'name', 'password', 'email']
+
+    if not all([user_data[field] for field in required_fields]):
         return jsonify({"error": "Missing required fields"}), 400
 
     # Validate email address
-    if not validate_email(email):
+    if not validate_email(user_data['email']):
         return jsonify({"error": "Invalid email address"}), 400
 
     # Check if username or email already exists
-    if User.query.filter_by(username=username).first() or User.query.filter_by(email=email).first():
+    if User.query.filter_by(username=user_data['username']).first() or User.query.filter_by(email=user_data['email']).first():
         return jsonify({"error": "Username or email already taken"}), 400
 
     # Hash password using Argon2
-    hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+    user_data['password'] = bcrypt.generate_password_hash(user_data['password']).decode('utf-8')
 
-    user = User(
-        username=username,
-        name=name,
-        email=email,
-        password=hashed_password
-    )
+    user = User(**user_data)
 
     db.session.add(user)
     db.session.commit()
 
-     # Generate a token for email verification
+    # Generate a token for email verification
     token = serializer.dumps(user.email, salt='email-confirm')
     # Create the verification link
     confirm_url = url_for('confirm_email', token=token, _external=True)
@@ -662,8 +665,10 @@ def get_users():
         user_data['email'] = user.email
         output.append(user_data)
 
-    return jsonify({'users': output, 'has_next': users.has_next, 'has_prev': users.has_prev, 'page': page, 'per_page': per_page}), 200
-
+    return jsonify({'users': output,
+                    'has_next': users.has_next, 
+                    'has_prev': users.has_prev, 
+                    'page': page, 'per_page': per_page}), 200
 
 if __name__ == '__main__':
     app.run(debug=True)

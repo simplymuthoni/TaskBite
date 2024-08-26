@@ -99,6 +99,10 @@ def create_app(config_name):
     app.config['SESSION_TYPE'] = 'filesystem'
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 
+    if __name__ == "__main__":
+        config_name = 'development'
+    CORS(app)  
+
     # Initialize extensions
     db.init_app(app)
     bcrypt.init_app(app)
@@ -108,14 +112,8 @@ def create_app(config_name):
     migrate.init_app(app, db)
     swagger.init_app(app)
 
-    # Enable CORS
-    CORS(app)
-
-    with app.app_context():
-        # Import routes
-        from app.routes import auth
-        app.register_blueprint(auth, url_prefix='/api/auth')
-        db.create_all()
+    from app.routes import auth
+    app.register_blueprint(auth, url_prefix='/api/auth')
 
     # Swagger setup
     swagger_url = '/api/docs'
@@ -125,43 +123,20 @@ def create_app(config_name):
 
     # Index route
     @app.route('/')
-    def index():
-        """
-        Returns a welcome message.
-
-        Returns:
-            dict: A dictionary containing a welcome message.
-
-        Example:
-            >>> response = app.test_client().get('/')
-            >>> response.json
-            {'message': 'Welcome to TaskBite API'}
-        """
-        return jsonify({"message": "Welcome to TaskBite API"}), 200
+    def root():
+        """Returns a welcome message."""
+        return {'message': 'Welcome to TaskBite API'}, 200
 
     # Error handling
     @app.errorhandler(422)
     @app.errorhandler(400)
-    def handle_error(err):
-        """
-        Handles 422 and 400 errors.
-
-        Args:
-            err (Exception): The error to handle.
-
-        Returns:
-            dict: A dictionary containing error messages.
-
-        Example:
-            >>> response = app.test_client().post('/invalid', data={'invalid': 'data'})
-            >>> response.json
-            {'errors': ['Invalid request.']}
-        """
-        headers = err.data.get("headers", None)
-        messages = err.data.get("messages", ["Invalid request."])
-        if headers:
-            return jsonify({"errors": messages})
-        else:
-            return jsonify({"errors": messages})
+    def handle_validation_error(exc):
+        """Handles 422 and 400 errors."""
+        if exc is None:
+            return jsonify({"errors": ["Invalid request."]})
+        if exc.data is None:
+            return jsonify({"errors": ["Invalid request."]})
+        messages = exc.data.get("messages", ["Invalid request."])
+        return jsonify({"errors": messages})
 
     return app
