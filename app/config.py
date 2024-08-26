@@ -1,14 +1,37 @@
+"""
+config.py
+
+This module contains the configuration settings for the Flask application. 
+
+It includes:
+- Configuration variables for Flask extensions such as 
+Flask-Session, Flask-JWT-Extended, and Flask-Mail.
+- Any other application-specific settings such as 
+secret keys, session management settings, and JWT expiration times.
+
+Configuration variables:
+- SECRET_KEY: The secret key used by Flask for session management and security.
+- JWT_SECRET_KEY: The secret key used for signing JWT tokens.
+- JWT_ACCESS_TOKEN_EXPIRES: The expiration time for JWT access tokens.
+- SESSION_TYPE: The type of session management used by Flask-Session.
+- MAIL_SENDER: The email address used as the sender for outgoing emails.
+
+Ensure that all sensitive information, such as secret keys, 
+is set through environment variables and not hardcoded in this file.
+
+Usage:
+Import the configuration settings into your 
+Flask application using `app.config.from_object('config')`.
+
+Example:
+    from flask import Flask
+    app = Flask(__name__)
+    app.config.from_object('config')
+"""
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
-
-"""
-Configuration classes for Flask application
-==========================================
-
-This module defines configuration classes for Flask application.
-"""
 
 class Config:
     """
@@ -28,7 +51,6 @@ class Config:
     Example: `SQLALCHEMY_DATABASE_URI=postgresql://user:password@host:port/dbname`
     """
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    
     MAIL_SERVER = 'smtp.gmail.com'
     MAIL_PORT = 587
     MAIL_USE_TLS = True
@@ -50,7 +72,6 @@ class Config:
     SESSION_PERMANENT = False
     SESSION_USE_SIGNER = True
     SESSION_KEY_PREFIX = 'flask_session:'
-    
     # JWT Config
     JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY')
 
@@ -111,7 +132,6 @@ class TestingConfig(Config):
     TESTING = True
     DEBUG = True
     SQLALCHEMY_DATABASE_URI = os.getenv('TEST_DATABASE_URL')
-    
     """
     URI for test database connection. Should be set as an environment variable.
     Example: `TEST_DATABASE_URL=postgresql://user:password@host:port/test_dbname`

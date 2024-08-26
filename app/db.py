@@ -1,8 +1,12 @@
+"""
+Database module for the TaskBite app.
+
+This module provides functions for interacting with the database.
+"""
+import os
 import mariadb
-from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from mariadb import Error
-import os
 
 SQLALCHEMY_DATABASE_URI = os.environ.get('SQLALCHEMY_DATABASE_URI')
 SQLALCHEMY_TRACK_MODIFICATIONS = False
@@ -48,9 +52,7 @@ def create_tables():
 def init_db():
     """
     Initializes the database by creating the tables.
-
     Returns:
         None
     """
-    create_tables()
-
+create_tables()

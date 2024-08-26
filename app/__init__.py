@@ -1,27 +1,68 @@
+"""
+config.py
+
+This module provides configuration settings for the Flask application. 
+
+It sets up the application configurations based on the environment 
+(development, testing, or production) 
+and initializes necessary extensions such as 
+SQLAlchemy, Bcrypt, JWTManager, Mail, and more.
+
+Configuration:
+- SQLALCHEMY_DATABASE_URI: URI for SQLAlchemy database connection.
+- JWT_SECRET_KEY: Secret key for signing JWT tokens.
+- MAIL_SERVER: Server for sending emails.
+- MAIL_PORT: Port for the mail server.
+- MAIL_USE_TLS: Boolean to enable TLS for the mail server.
+- MAIL_USERNAME: Username for the mail server.
+- MAIL_PASSWORD: Password for the mail server.
+- SESSION_TYPE: Type of session management.
+- SECRET_KEY: Secret key used for Flask session management.
+
+Usage:
+Call `create_app(config_name)` 
+to create a Flask application instance with the desired configuration.
+
+Example:
+    >>> app = create_app('development')
+"""
+
+import os
 from flask import Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_mail import Mail
 from flask_migrate import Migrate
 from flask_cors import CORS
-from flask_session import Session
 from flasgger import Swagger
 from dotenv import load_dotenv
 from flask_jwt_extended import JWTManager
-import os
-from .extensions import db
 from flask_swagger_ui import get_swaggerui_blueprint
-import config
+from flask_session import Session
+from app import config
+from .extensions import db
 
+# Load environment variables from .env file
 load_dotenv()
 
-def create_app(config_name):
+# Initialize extensions
+bcrypt = Bcrypt()
+jwt = JWTManager()
+mail = Mail()
+sess = Session()
+migrate = Migrate()
+swagger = Swagger()
+migrate = Migrate()
 
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+def create_app(config_name):
     """
     Creates a Flask application instance with the specified configuration.
 
     Args:
-        config_name (str): The name of the configuration to use. Can be 'development', 'testing', or 'production'.
+        config_name (str): The name of the configuration to use. 
+        Can be 'development', 'testing', or 'production'.
 
     Returns:
         Flask: The created Flask application instance.
@@ -47,7 +88,7 @@ def create_app(config_name):
 
     app.config.from_object(app_config[config_name])
 
-    # Load environment variables from .env file
+    # Load environment variables
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
     app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
     app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER')
@@ -57,14 +98,6 @@ def create_app(config_name):
     app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
     app.config['SESSION_TYPE'] = 'filesystem'
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
-
-    # Initialize extensions
-    bcrypt = Bcrypt()
-    jwt = JWTManager()
-    mail = Mail()
-    sess = Session()
-    migrate = Migrate()
-    swagger = Swagger()
 
     # Initialize extensions
     db.init_app(app)
@@ -79,15 +112,16 @@ def create_app(config_name):
     CORS(app)
 
     with app.app_context():
-        #import routes
+        # Import routes
         from app.routes import auth
         app.register_blueprint(auth, url_prefix='/api/auth')
+        db.create_all()
 
     # Swagger setup
-    SWAGGER_URL = '/api/docs'
-    API_URL = '/static/swagger.json'
-    swaggerui_blueprint = get_swaggerui_blueprint(SWAGGER_URL, API_URL, config={'app_name': "TaskBite"})
-    app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
+    swagger_url = '/api/docs'
+    api_url = '/static/swagger.json'
+    swaggerui_blueprint = get_swaggerui_blueprint(swagger_url, api_url,config={'app_name': "TaskBite"})
+    app.register_blueprint(swaggerui_blueprint, url_prefix=swagger_url)
 
     # Index route
     @app.route('/')
