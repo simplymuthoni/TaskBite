@@ -1,2 +1,5 @@
 #env file
 .env
+
+#___pycache__ folder
+___pycache__
