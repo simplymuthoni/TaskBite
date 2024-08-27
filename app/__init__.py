@@ -112,14 +112,17 @@ def create_app(config_name):
     migrate.init_app(app, db)
     swagger.init_app(app)
 
-    from app.routes import auth
-    app.register_blueprint(auth, url_prefix='/api/auth')
+    #Register blueprints only once
+    if not hasattr(app, 'blueprints'):
+        from app.routes import auth
+        app.register_blueprint(auth, url_prefix='/api/auth')
 
-    # Swagger setup
-    swagger_url = '/api/docs'
-    api_url = '/static/swagger.json'
-    swaggerui_blueprint = get_swaggerui_blueprint(swagger_url, api_url,config={'app_name': "TaskBite"})
-    app.register_blueprint(swaggerui_blueprint, url_prefix=swagger_url)
+        # Swagger setup
+        swagger_url = '/api/docs'
+        api_url = '/static/swagger.json'
+        swaggerui_blueprint = get_swaggerui_blueprint(swagger_url,
+                                                      api_url,config={'app_name': "TaskBite"})
+        app.register_blueprint(swaggerui_blueprint, url_prefix=swagger_url)
 
     # Index route
     @app.route('/')

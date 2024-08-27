@@ -44,7 +44,7 @@ from datetime import timedelta
 from flask import Flask, request, jsonify, Blueprint, session, url_for
 from flasgger import Swagger
 from werkzeug.security import check_password_hash
-from itsdangerous import URLSafeTimedSerializer
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from flask_jwt_extended import create_access_token, get_jwt
 from flask_jwt_extended import jwt_required, get_jwt_identity, JWTManager
 from flask_mail import Mail, Message
@@ -161,9 +161,9 @@ def register_user():
         return jsonify({"error": "Invalid email address"}), 400
 
     # Check if username or email already exists
-    if User.query.filter_by(username=user_data['username']).first() or User.query.filter_by(email=user_data['email']).first():
+    if User.query.filter_by(username=user_data['username']).first() or \
+      User.query.filter_by(email=user_data['email']).first():
         return jsonify({"error": "Username or email already taken"}), 400
-
     # Hash password using Argon2
     user_data['password'] = bcrypt.generate_password_hash(user_data['password']).decode('utf-8')
 
@@ -178,8 +178,9 @@ def register_user():
     confirm_url = url_for('confirm_email', token=token, _external=True)
     # Send the email
     send_email(user.email, 'Confirm Your Email', confirm_url=confirm_url)
-    return jsonify({'message': 'User created. Please check your email to verify your account.'}), 201
-
+    return jsonify({
+    'message': 'User created. Please check your email to verify your account.'
+    }), 201
 def send_email(to, subject, **kwargs):
     """
     Sends an email to the specified recipient with the provided subject and content.
@@ -458,7 +459,11 @@ def forgot_password():
 
     # Send the password reset email
     msg = Message("Password Reset Request", recipients=[email])
-    msg.body = f"To reset your password, visit the following link: {reset_url}\n\nIf you did not request a password reset, please ignore this email."
+    msg.body = (
+    f"To reset your password, visit the following link: {reset_url}\n"
+    "\n"
+    "If you did not request a password reset, please ignore this email."
+    )
     mail.send(msg)
 
     return jsonify({"message": "Password reset email sent successfully"}), 200
@@ -492,7 +497,7 @@ def reset_password(token):
     """
     try:
         email = serializer.loads(token, salt='password-reset-salt', max_age=3600)
-    except:
+    except (BadSignature, SignatureExpired):
         return jsonify({"error": "Invalid or expired token"}), 400
 
     data = request.get_json()
@@ -560,15 +565,14 @@ def update_user(user_id):
     email = data.get('email')
 
     if username:
-        if User.query.filter_by(username=username).first() and User.query.filter_by(username=username).first().id != user_id:
-            return jsonify({"error": "Username already taken"}), 400
-        user.username = username
-
+        user = User.query.filter_by(username=username).first()
+    if user and user.id != user_id:
+      return jsonify({"error": "Username already taken"}), 400
+    user.username = username
     if email:
-        if User.query.filter_by(email=email).first() and User.query.filter_by(email=email).first().id != user_id:
-            return jsonify({"error": "Email already registered"}), 400
-        user.email = email
-
+            existing_user = User.query.filter_by(email=email).first()
+    if existing_user and existing_user.id != user_id:return jsonify({"error": "Email already registered"}), 400
+    user.email = email
     if name:
         user.name = name
 
@@ -669,6 +673,21 @@ def get_users():
                     'has_next': users.has_next, 
                     'has_prev': users.has_prev, 
                     'page': page, 'per_page': per_page}), 200
+
+# Register Blueprints
+auth.add_url_rule('/register', methods=['POST'])
+auth.add_url_rule('/confirm/<token>', methods=['GET'])
+auth.add_url_rule('/login', methods=['POST'])
+auth.add_url_rule('/dashboard', methods=['GET'])
+auth.add_url_rule('/register', methods=['POST'])   
+auth.add_url_rule('/notes/<string:note_id>', methods=['GET'])
+auth.add_url_rule('/todos/<string:todo_id>', methods=['GET'])
+auth.add_url_rule('/logout', methods=['POST'])
+auth.add_url_rule('/forgot-password', methods=['POST'])
+auth.add_url_rule('/reset-password/<token>', methods=['POST'])
+auth.add_url_rule('/update/<int:user_id>', methods=['PUT'])
+auth.add_url_rule('/users', methods=['GET'])
+auth.add_url_rule('/delete', methods=['POST'])
 
 if __name__ == '__main__':
     app.run(debug=True)

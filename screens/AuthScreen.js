@@ -12,37 +12,18 @@ export default function AuthScreen({ navigation }) {
 
   const handleCreateAccount = async () => {
     try {
-      const response = await axios.post('https://127.0.0.1:8000/api/auth/register', {
+      const requestBody = {
         name,
         email,
         password,
-      });
-      console.log(response.data);
+      };
+
+      const response = await axios.post(
+        'https://127.0.0.1:8000/api/auth/register',
+        requestBody,
+      );
+
       navigation.navigate('Login');
-    } catch (error) {
-      setError(error.response.data.message);
-    }
-  };
-
-  const handleLogin = async () => {
-    try {
-      const response = await axios.post('http://127.0.0.1:8000/api/auth/login', {
-        email,
-        password,
-      });
-      console.log(response.data);
-      navigation.navigate('Home');
-    } catch (error) {
-      setError(error.response.data.message);
-    }
-  };
-
-  const handleForgotPassword = async () => {
-    try {
-      const response = await axios.post('http://127.0.0.1:8000/api/auth/forgot-password', {
-        email,
-      });
-      console.log(response.data);
     } catch (error) {
       setError(error.response.data.message);
     }
@@ -114,21 +95,9 @@ export default function AuthScreen({ navigation }) {
             round
             uppercase
             color="info"
-            onPress={handleLogin}
+            onPress={() => navigation.navigate('Login')}
             >
             Login
-          </Button>
-        </View>
-
-        <View style={styles.forgotPasswordContainer}>
-          <Text>Forgot Password?</Text>
-          <Button
-            round
-            uppercase
-            color="warning"
-            onPress={handleForgotPassword}
-            >
-            Forgot Password
           </Button>
         </View>
 
@@ -168,9 +137,6 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   loginContainer: {
-    marginTop: 20,
-  },
-  forgotPasswordContainer: {
     marginTop: 20,
   },
   errorContainer: {

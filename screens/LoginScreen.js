@@ -1,71 +1,64 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, Button, Alert, CheckBox } from 'react-native';
+import { StyleSheet, Text, View, TextInput, Alert } from 'react-native';
+import axios from 'axios';
+import { Button, CheckBox } from 'galio-framework';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+  const [error, setError] = useState(null);
 
   /**
    * Handles the login button press
-   *
-   * @param {string} email - The email input value
-   * @param {string} password - The password input value
-   *
-   * @example
-   * handleLogin('johndoe@example.com', 'password123')
    */
   const handleLogin = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email,
-          password,
-        }),
-      });
+      const response = await axios.post(
+        'http://127.0.0.1:8000/api/auth/login',
+        { email, password }
+      );
 
-      const data = await response.json();
-      if (data.success) {
+      const { success, error } = response.data;
+      if (success) {
         Alert.alert('Login Successful', `Email: ${email}`);
         // Store the token or user data in AsyncStorage or Redux
         // navigation.navigate('Home');
       } else {
-        Alert.alert('Error', data.error);
+        setError(error);
+        Alert.alert('Error', error);
       }
     } catch (error) {
+      setError('Failed to login');
       Alert.alert('Error', 'Failed to login');
     }
   };
 
   /**
    * Handles the forgot password button press
-   *
-   * @example
-   * handleForgotPassword()
    */
   const handleForgotPassword = async () => {
     try {
+      const requestBody = JSON.stringify({ email });
       const response = await fetch('http://127.0.0.1:8000/api/auth/forgot-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          email,
-        }),
+        body: requestBody,
       });
 
-      const data = await response.json();
-      if (data.success) {
+      const responseData = await response.json();
+      const { success, error } = responseData;
+
+      if (success) {
         Alert.alert('Forgot Password', 'Password reset email sent');
       } else {
-        Alert.alert('Error', data.error);
+        setError(error);
+        Alert.alert('Error', error);
       }
     } catch (error) {
+      setError('Failed to send password reset email');
       Alert.alert('Error', 'Failed to send password reset email');
     }
   };
@@ -100,32 +93,45 @@ export default function LoginScreen({ navigation }) {
         <CheckBox
           value={rememberMe}
           onValueChange={(value) => setRememberMe(value)}
+          label="Remember me"
         />
-        <Text style={styles.label}>Remember me</Text>
       </View>
 
       <Button
-        title="Login"
-        onPress={handleLogin}
+        round
+        uppercase
+        style={styles.loginButton}
         color="#007BFF"
-      />
-      <b></b>
+        onPress={handleLogin}
+      >
+        Login
+      </Button>
 
       <Button
-        title="Forgot Password"
-        onPress={handleForgotPassword}
+        round
         color="#DC3545"
         style={styles.forgotPasswordButton}
-      />
+        onPress={handleForgotPassword}
+      >
+        Forgot Password
+      </Button>
 
       <View style={styles.footer}>
         <Text>Don't have an account?</Text>
         <Button
-          title="Create Account"
-          onPress={() => navigation.navigate('Auth')}
+          round
           color="#28A745"
-        />
+          onPress={() => navigation.navigate('Auth')}
+        >
+          Create Account
+        </Button>
       </View>
+
+      {error && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -145,7 +151,6 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     width: 300,
-    height:200,
     marginBottom: 15,
   },
   label: {
@@ -153,36 +158,35 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   input: {
-    height: 30,
+    height: 40,
     borderColor: '#ced4da',
     borderWidth: 1,
     padding: 10,
     backgroundColor: '#fff',
   },
-  inputContainer: {
-    marginBottom: 20,
-  },
-  formContainer: {
-    padding: 20,
-  },
   rememberMeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 10,
     marginBottom: 20,
   },
   forgotPasswordButton: {
-    marginTop: 10,
     marginBottom: 20,
-    padding:20,
   },
-  loginButton:{
-    padding: 20,
-    marginTop: 10,
-    marginBottom:20,
+  loginButton: {
+    marginBottom: 20,
   },
   footer: {
     marginTop: 20,
     alignItems: 'center',
+  },
+  errorContainer: {
+    marginTop: 20,
+    backgroundColor: '#f44336',
+    padding: 10,
+    borderRadius: 5,
+  },
+  errorText: {
+    color: '#fff',
+    fontSize: 16,
   },
 });
