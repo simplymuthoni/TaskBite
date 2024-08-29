@@ -144,42 +144,49 @@ def register_user():
     if not data:
         return jsonify({"error": "Invalid input"}), 400
 
-    user_data = {
-        'username': data.get('username'),
-        'name': data.get('name'),
-        'email': data.get('email'),
-        'password': data.get('password')
-    }
+    username = data.get('username')
+    name = data.get('name')
+    password = data.get('password')
+    email = data.get('email')
 
-    required_fields = ['username', 'name', 'password', 'email']
-
-    if not all([user_data[field] for field in required_fields]):
+    if not username or not name or not password or not email:
         return jsonify({"error": "Missing required fields"}), 400
 
     # Validate email address
-    if not validate_email(user_data['email']):
+    if not validate_email(email):
         return jsonify({"error": "Invalid email address"}), 400
 
     # Check if username or email already exists
-    if User.query.filter_by(username=user_data['username']).first() or \
-      User.query.filter_by(email=user_data['email']).first():
+    existing_user = User.query.filter(
+        or_(User.username == username, User.email == email)
+    ).first()
+    if existing_user:
         return jsonify({"error": "Username or email already taken"}), 400
     # Hash password using Argon2
-    user_data['password'] = bcrypt.generate_password_hash(user_data['password']).decode('utf-8')
+    hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
 
-    user = User(**user_data)
+    user = User(username=username, name=name, email=email, password=hashed_password)
 
     db.session.add(user)
     db.session.commit()
 
     # Generate a token for email verification
-    token = serializer.dumps(user.email, salt='email-confirm')
+    try:
+        token = serializer.dumps(user.email, salt='email-confirm')
+    except Exception as e:
+        app.logger.error(f"Failed to generate token: {e}")
+        return jsonify({"error": "Failed to generate token"}), 500
     # Create the verification link
     confirm_url = url_for('confirm_email', token=token, _external=True)
     # Send the email
-    send_email(user.email, 'Confirm Your Email', confirm_url=confirm_url)
+    try:
+        send_email(user.email, 'Confirm Your Email', confirm_url=confirm_url)
+    except Exception as e:
+        app.logger.error(f"Failed to send email: {e}")
+        return jsonify({"error": "Failed to send email"}), 500
+
     return jsonify({
-    'message': 'User created. Please check your email to verify your account.'
+        'message': 'User created. Please check your email to verify your account.'
     }), 201
 def send_email(to, subject, **kwargs):
     """
