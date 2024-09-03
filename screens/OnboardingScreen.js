@@ -22,36 +22,28 @@ const slides = [
   },
 ];
 
-export default function OnboardingScreen({ navigation }) {
-  const renderItem = ({ item }) => {
-    return (
-      <View style={styles.slide}>
-        <Image source={item.image} style={styles.image} />
-        <Text style={styles.title}>{item.title}</Text>
-        <Text style={styles.description}>{item.description}</Text>
-      </View>
-    );
-  };
+export default function OnboardingScreen({ navigation: { replace } }) {
+  const renderSlide = ({ item }) => (
+    <View style={styles.slide}>
+      <Image source={item.image} style={styles.image} />
+      <Text style={styles.title}>{item.title}</Text>
+      <Text style={styles.description}>{item.description}</Text>
+    </View>
+  );
 
   return (
     <View style={styles.container}>
       <Carousel
         data={slides}
-        renderItem={renderItem}
+        renderItem={renderSlide}
         sliderWidth={screenWidth}
         itemWidth={screenWidth}
-        loop={true}
+        loop
       />
-      <TouchableOpacity
-        style={styles.getStartedButton}
-        onPress={() => navigation.replace('Auth')}
-      >
+      <TouchableOpacity style={styles.getStartedButton} onPress={() => replace('Auth')}>
         <Text style={styles.getStartedText}>Get Started</Text>
       </TouchableOpacity>
-      <Text
-        style={styles.skip}
-        onPress={() => navigation.replace('Auth')}
-      >
+      <Text style={styles.skip} onPress={() => replace('Auth')}>
         Skip
       </Text>
     </View>

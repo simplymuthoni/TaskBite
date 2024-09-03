@@ -89,21 +89,22 @@ def create_app(config_name):
     app.config.from_object(app_config[config_name])
 
     # Load environment variables
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
-    app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
-    app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER')
-    app.config['MAIL_PORT'] = int(os.getenv('MAIL_PORT'))
-    app.config['MAIL_USE_TLS'] = os.getenv('MAIL_USE_TLS') == 'True'
-    app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
-    app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
-    app.config['SESSION_TYPE'] = 'filesystem'
+    # app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
+    # app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
+    # app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER')
+    # app.config['MAIL_PORT'] = int(os.getenv('MAIL_PORT'))
+    # app.config['MAIL_USE_TLS'] = os.getenv('MAIL_USE_TLS') == 'True'
+    # app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
+    # app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
+    # app.config['SESSION_TYPE'] = 'filesystem'
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 
     if __name__ == "__main__":
         config_name = 'development'
-    CORS(app)  
+    CORS(app)
 
     # Initialize extensions
+    db.app = app
     db.init_app(app)
     bcrypt.init_app(app)
     jwt.init_app(app)
@@ -113,18 +114,10 @@ def create_app(config_name):
     swagger.init_app(app)
 
     #Register blueprints only once
-    if not hasattr(app, 'blueprints'):
-        from app.routes import auth
-        app.register_blueprint(auth, url_prefix='/api/auth')
+    from .auth.routes import auth
+    app.register_blueprint(auth)
 
-        # Swagger setup
-        swagger_url = '/api/docs'
-        api_url = '/static/swagger.json'
-        swaggerui_blueprint = get_swaggerui_blueprint(swagger_url,
-                                                      api_url,config={'app_name': "TaskBite"})
-        app.register_blueprint(swaggerui_blueprint, url_prefix=swagger_url)
-
-    # Index route
+    #Index Route
     @app.route('/')
     def root():
         """Returns a welcome message."""
