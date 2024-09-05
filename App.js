@@ -8,7 +8,6 @@ import NotesScreen from './screens/NotesScreen';
 import TodoListScreen from './screens/TodoListScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import DashboardScreen from './screens/DashboardScreen';
-import OnboardingScreen from './screens/OnboardingScreen'; // Import OnboardingScreen
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -27,12 +26,7 @@ function MainTabs() {
 export default function App() {
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName="Onboarding"> {/* Set Onboarding as the initial route */}
-        <Stack.Screen
-          name="Onboarding"
-          component={OnboardingScreen}
-          options={{ headerShown: false }}
-        />
+      <Stack.Navigator initialRouteName="Home">
         <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="Auth" component={AuthScreen} />
         <Stack.Screen name="Login" component={LoginScreen} />

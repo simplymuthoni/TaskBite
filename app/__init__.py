@@ -115,6 +115,9 @@ def create_app(config_name):
 
     #Register blueprints only once
     from .auth.routes import auth
+    from app.admin.routes import users_blueprint
+
+    app.register_blueprint(users_blueprint, url_prefix='/api/admin/user')
     app.register_blueprint(auth)
 
     #Index Route
