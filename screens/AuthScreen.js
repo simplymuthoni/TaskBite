@@ -34,7 +34,7 @@ export default function AuthScreen({ navigation }) {
       };
 
       const response = await axios.post(
-        'http://127.0.0.1:8000/api/auth/register',
+        'http://192.168.0.102:8000/api/auth/register',
         requestBody,
       );
 

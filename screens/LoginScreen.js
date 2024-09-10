@@ -9,7 +9,7 @@ export default function LoginScreen({ navigation }) {
 
   const handleLogin = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/auth/login', {
+      const response = await fetch('http://192.168.0.102:8000/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -22,9 +22,11 @@ export default function LoginScreen({ navigation }) {
 
       const data = await response.json();
       if (data.success) {
-        Alert.alert('Login Successful', `Email: ${email}`);
-        // Store the token or user data in AsyncStorage or Redux
-        // navigation.navigate('Home');
+        // Store the token or user data if necessary, like in AsyncStorage or Redux
+        Alert.alert('Login Successful', `Welcome ${data.user.name}`);
+        
+        // Redirect to the Dashboard screen
+        navigation.navigate('Dashboard');
       } else {
         Alert.alert('Error', data.error);
       }
